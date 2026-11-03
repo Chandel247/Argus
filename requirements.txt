@@ -1,0 +1,10 @@
+# Python 3.10–3.12 (Kaggle Notebooks: 3.11)
+numpy
+scipy
+scikit-image
+pillow
+pytest
+# deep metrics (LPIPS, MUSIQ, NIQE, URanker)
+torch
+torchvision
+pyiqa

@@ -40,12 +40,50 @@ bash scripts/download_data.sh lsui       # just one
 - Downstream: detector trained on raw RUOD-train; mAP on raw vs. enhanced RUOD-test
 - Cost: params, FLOPs, runtime @256×256
 
+## Evaluation
+
+All methods are scored with `uie/metrics.py` through one script. Predictions
+are matched to references by filename stem; both are resized to 256×256
+(`--size 0` for native resolution).
+
+```bash
+python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# full-reference test set (default metrics: psnr, ssim, lpips, uiqm, uciqe)
+.venv/bin/python scripts/evaluate.py --pred results/<method>/uieb_t90 \
+    --gt data/uieb/reference-890 --split splits/uieb_test.txt \
+    --name <method> --dataset uieb_t90
+
+# no-reference test set, all no-reference metrics
+.venv/bin/python scripts/evaluate.py --pred results/<method>/c60 \
+    --metrics uiqm,uciqe,musiq,niqe,uranker --name <method> --dataset uieb_c60
+```
+
+Writes `results/<method>/<dataset>.csv` (per image) and `.json` (means).
+Score the raw inputs too (`--pred data/uieb/raw-890 --name input`) so each table
+has an Input row.
+
+Metric notes:
+- **UIQM** is a vectorized port of the FUnIE-GAN `uqim_utils.py` implementation
+  used by many papers, checked against a literal transcription in `tests/`.
+- **UCIQE** follows Yang & Sowmya (2015) with correctly zero-centered CIELab;
+  absolute values are lower than toolboxes that keep OpenCV's +128 a/b offset,
+  so compare UCIQE only within this benchmark.
+- Deep metrics run on CUDA if available, else CPU (pyiqa's NIQE does not
+  support Apple MPS).
+
+```bash
+.venv/bin/python -m pytest -q tests
+```
+
 ## Layout
 
 ```
 configs/    dataset paths and sources
 splits/     train/test filename lists
-scripts/    data download, split generation
+uie/        shared metric implementations
+scripts/    data download, split generation, evaluation
+tests/      metric tests
 baselines/  cloned third-party baseline repos (gitignored)
 data/       datasets (gitignored)
 ```
