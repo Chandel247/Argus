@@ -31,8 +31,9 @@ DATASETS = {
 }
 
 JOBS = {
-    # ~15 min: official weights through our shims + 2-epoch smoke train and resume
-    "semi-uir-check": {"title": "argus semi-uir check", "steps": ["check_official", "train"],
+    # official weights through our shims (passed: T90 24.12 dB) is step
+    # "check_official"; this job now smoke-tests training + resume (~10 min)
+    "semi-uir-check": {"title": "argus semi-uir check", "steps": ["train", "train_resume"],
                        "epochs": 2, "smoke": True, "max_hours": 1, "timeout": 3600},
     # protocol run A: train UIEB, test T90/C60/L400
     "semi-uir-uieb": {"title": "argus semi-uir uieb", "steps": ["train", "test"],

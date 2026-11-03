@@ -41,6 +41,7 @@ def sh(cmd, **kw):
 
 def main():
     log(f"config: {json.dumps(CONFIG)}")
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     code_src = find_dir("uie/metrics.py")
     assert code_src, "argus code dataset not attached"
     if TMP.exists():
@@ -72,11 +73,14 @@ def main():
                 "--split", "splits/uieb_test.txt", "--metrics", "psnr,ssim,uiqm,uciqe",
                 "--name", "semi_uir_official", "--dataset", "uieb_t90", "--out", OUT / "results"])
 
-        elif step == "train":
-            state = find_dir("ckpt/last.pt")
+        elif step in ("train", "train_resume"):
+            # train_resume: run the trainer again for one more epoch; it must
+            # continue from run/ckpt/last.pt (tests resume within one session)
+            state = find_dir("ckpt/last.pt") if step == "train" else None
+            epochs = CONFIG.get("epochs", 200) + (1 if step == "train_resume" else 0)
             cmd = [py, "scripts/train_semi_uir.py", "--uieb", uieb, "--lsui", lsui,
                    "--run-dir", run, "--work-dir", "/tmp/work",
-                   "--epochs", CONFIG.get("epochs", 200), "--max-hours", CONFIG.get("max_hours", 11)]
+                   "--epochs", epochs, "--max-hours", CONFIG.get("max_hours", 11)]
             if state:
                 log(f"resuming from {state}")
                 cmd += ["--resume-from", state]

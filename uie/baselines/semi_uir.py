@@ -123,12 +123,16 @@ class Enhancer:
 
     def __call__(self, img: np.ndarray, size: int | None = 256, max_side: int | None = None) -> np.ndarray:
         """size: square resize (benchmark protocol). max_side: keep aspect,
-        cap the longer side (demo). The illumination map is computed on the
-        original image, then resized alongside it, as in the official pipeline."""
+        cap the longer side (demo).
+
+        With `size`, the illumination map is computed on the original image and
+        resized alongside it, as the official train/val loaders do. With
+        `max_side`, the image is resized first and the map computed at the
+        resolution the model runs at, as the official test.py does (which runs
+        at native resolution); this is also much faster on large photos."""
         from PIL import Image
         torch = self.torch
 
-        la = luminance_estimation(img)
         h, w = img.shape[:2]
         if size:
             th, tw = size, size
@@ -136,7 +140,11 @@ class Enhancer:
             s = min(1.0, (max_side or max(h, w)) / max(h, w))
             th, tw = (max(MULTIPLE, int(round(d * s / MULTIPLE)) * MULTIPLE) for d in (h, w))
         rs = lambda a: np.asarray(Image.fromarray(a).resize((tw, th), Image.LANCZOS))
-        x, l = rs(img), rs(la)
+        if size:
+            x, l = rs(img), rs(luminance_estimation(img))
+        else:
+            x = rs(img)
+            l = luminance_estimation(x)
 
         t = lambda a: torch.from_numpy(a).permute(2, 0, 1).float().div(255).unsqueeze(0).to(self.device)
         with torch.no_grad():

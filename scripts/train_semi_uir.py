@@ -190,6 +190,18 @@ def main(argv=None):
                  iter_per_epoch=len(unpaired_loader), writer=_NullWriter())
     tr.freeze_teachers_parameters()
 
+    # Upstream creates MUSIQ with as_loss=True, so every reliable-bank scoring
+    # call keeps a full autograd graph -- but all three call sites immediately
+    # .detach() the scores and only compare them. Scoring under no_grad is
+    # numerically identical and avoids OOM on 16 GB GPUs.
+    _iqa = tr.iqa_metric
+
+    def iqa_no_grad(x):
+        with torch.no_grad():
+            return _iqa(x)
+
+    tr.iqa_metric = iqa_no_grad
+
     best = -1.0
     start = 1
     if state:
@@ -214,6 +226,8 @@ def main(argv=None):
         rec = {"epoch": epoch, "val_psnr": val_psnr, "train_psnr": float(np.mean(psnr_train)),
                "loss": float(loss), "lr": tr.lr_scheduler_s.get_last_lr()[0], "sec": round(dt, 1),
                "time": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        if torch.cuda.is_available():
+            rec["peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
         improved = val_psnr > best
         if improved:
             best = val_psnr
