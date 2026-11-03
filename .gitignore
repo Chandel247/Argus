@@ -30,3 +30,7 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# Exported weights and demo example images
+exports/
+demo/static/examples/

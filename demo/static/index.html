@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus Baseline Demo</title>
+<style>
+  :root {
+    --bg: #f6f8fa; --surface: #ffffff; --text: #16202b; --muted: #5b6b7b;
+    --border: #d9e1e8; --accent: #0b7285; --accent-soft: #e3f4f6; --danger: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1419; --surface: #151f27; --text: #e6edf3; --muted: #93a4b4;
+      --border: #26343f; --accent: #3bc9db; --accent-soft: #10303a; --danger: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 28px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 4px 0 0; }
+  .model { font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+           border-radius: 8px; padding: 8px 12px; min-width: 260px; }
+  .model b { color: var(--text); font-weight: 600; }
+  .model .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+                margin-right: 6px; vertical-align: 1px; }
+  .model.err .dot { background: var(--danger); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 20px; }
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 26px 16px; text-align: center;
+          cursor: pointer; color: var(--muted); transition: border-color .15s, background .15s; }
+  .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .drop input { display: none; }
+  .examples { display: flex; gap: 8px; overflow-x: auto; padding-top: 12px; }
+  .examples img { height: 64px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; flex: none; }
+  .examples img:hover { border-color: var(--accent); }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .compare { position: relative; width: 100%; user-select: none; border-radius: 8px; overflow: hidden;
+             background: var(--bg); touch-action: none; }
+  .compare img { display: block; width: 100%; height: auto; }
+  .compare .after { position: absolute; inset: 0; clip-path: inset(0 0 0 50%); }
+  .compare .after img { height: 100%; object-fit: cover; }
+  .handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff;
+            box-shadow: 0 0 0 1px rgba(0,0,0,.25); cursor: ew-resize; }
+  .handle::after { content: "⟷"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                   background: #fff; color: #16202b; border-radius: 50%; width: 30px; height: 30px;
+                   display: grid; place-items: center; font-size: 15px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .tag { position: absolute; top: 10px; font-size: 12px; background: rgba(0,0,0,.55); color: #fff;
+         padding: 2px 8px; border-radius: 4px; }
+  .tag.l { left: 10px; } .tag.r { right: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .row a { color: var(--accent); }
+  .status { min-height: 22px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .status.err { color: var(--danger); }
+  .hidden { display: none; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+             border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite;
+             vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Underwater Image Enhancement — Baseline</h1>
+      <p class="sub">Upload an underwater photo to see the baseline model's enhancement.</p>
+    </div>
+    <div class="model" id="model"><span class="dot"></span>Loading model…</div>
+  </header>
+
+  <section class="card">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*">
+      <strong>Drop an image here</strong> or click to choose a file
+    </label>
+    <div id="exWrap" class="hidden">
+      <p class="label" style="margin-top:14px">Or try a test image (UIEB T90, unseen in training)</p>
+      <div class="examples" id="examples"></div>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="card hidden" id="result">
+    <p class="label">Drag the handle to compare</p>
+    <div class="compare" id="compare">
+      <img id="before" alt="Input">
+      <div class="after"><img id="after" alt="Enhanced"></div>
+      <div class="handle" id="handle"></div>
+      <span class="tag l">Input</span><span class="tag r">Enhanced</span>
+    </div>
+    <div class="row">
+      <span id="meta"></span>
+      <a id="download" download="enhanced.jpg">Download enhanced image</a>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function loadModel() {
+  const box = $("model");
+  try {
+    const r = await fetch("/api/model");
+    const m = await r.json();
+    if (!m.ok) throw new Error(m.error);
+    const score = m.val_psnr != null ? ` · val PSNR <b>${m.val_psnr.toFixed(2)} dB</b>` : "";
+    const epoch = m.epoch != null ? ` · epoch <b>${m.epoch}</b>` : "";
+    const src = m.source === "official" ? "official released weights" : "trained under our protocol";
+    box.classList.remove("err");
+    box.innerHTML = `<span class="dot"></span><b>${m.name}</b> · ${m.tag}${epoch}${score}<br>${src} · exported ${m.exported_at.replace("T", " ")}`;
+  } catch (e) {
+    box.classList.add("err");
+    box.innerHTML = `<span class="dot"></span>${e.message}`;
+  }
+}
+
+async function loadExamples() {
+  const names = await (await fetch("/api/examples")).json();
+  if (!names.length) return;
+  $("exWrap").classList.remove("hidden");
+  for (const n of names) {
+    const img = document.createElement("img");
+    img.src = `/static/examples/${encodeURIComponent(n)}`;
+    img.alt = n; img.title = n;
+    img.onclick = () => run({ example: n });
+    $("examples").appendChild(img);
+  }
+}
+
+async function run(payload) {
+  const st = $("status");
+  st.className = "status";
+  st.innerHTML = '<span class="spinner"></span>Enhancing…';
+  try {
+    let r;
+    if (payload instanceof File) {
+      const fd = new FormData(); fd.append("image", payload);
+      r = await fetch("/api/enhance", { method: "POST", body: fd });
+    } else {
+      r = await fetch("/api/enhance", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(payload) });
+    }
+    const d = r.headers.get("content-type")?.includes("json") ? await r.json() : { ok: false, error: `HTTP ${r.status}` };
+    if (!d.ok) throw new Error(d.error);
+    $("before").src = d.input; $("after").src = d.output; $("download").href = d.output;
+    $("meta").textContent = `${d.size[0]}×${d.size[1]} (from ${d.orig_size[0]}×${d.orig_size[1]}) · ${d.ms} ms · ${d.checkpoint}`;
+    $("result").classList.remove("hidden");
+    setSplit(0.5);
+    st.textContent = "";
+    loadModel();  // reflect a hot-reloaded checkpoint
+  } catch (e) {
+    st.className = "status err";
+    st.textContent = e.message;
+  }
+}
+
+function setSplit(f) {
+  f = Math.min(1, Math.max(0, f));
+  document.querySelector(".compare .after").style.clipPath = `inset(0 0 0 ${f * 100}%)`;
+  $("handle").style.left = `${f * 100}%`;
+}
+(() => {
+  const c = $("compare"); let drag = false;
+  const move = (e) => { if (!drag) return; const b = c.getBoundingClientRect(); setSplit((e.clientX - b.left) / b.width); };
+  c.addEventListener("pointerdown", (e) => { drag = true; c.setPointerCapture(e.pointerId); move(e); });
+  c.addEventListener("pointermove", move);
+  c.addEventListener("pointerup", () => drag = false);
+})();
+
+const drop = $("drop");
+$("file").onchange = (e) => e.target.files[0] && run(e.target.files[0]);
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => e.dataTransfer.files[0] && run(e.dataTransfer.files[0]));
+
+loadModel(); loadExamples();
+setInterval(loadModel, 30000);
+</script>
+</body>
+</html>

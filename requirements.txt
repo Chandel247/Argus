@@ -4,7 +4,11 @@ scipy
 scikit-image
 pillow
 pytest
-# deep metrics (LPIPS, MUSIQ, NIQE, URanker)
+# deep metrics (LPIPS, MUSIQ, NIQE, URanker) and baselines
 torch
 torchvision
 pyiqa
+opencv-python-headless
+adamp
+# demo
+flask

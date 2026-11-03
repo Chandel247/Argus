@@ -76,14 +76,62 @@ Metric notes:
 .venv/bin/python -m pytest -q tests
 ```
 
+## Baselines
+
+Third-party code is cloned at a pinned commit into `baselines/<name>/` (not
+vendored) and wrapped by an adapter in `uie/baselines/`.
+
+| Baseline | Adapter | Notes |
+|---|---|---|
+| Semi-UIR (CVPR'23) | `uie/baselines/semi_uir.py` | mmcv DCN → torchvision shim; unlabeled set = 800 LSUI-train inputs; checkpoint selection on `splits/uieb_val.txt` (50 held out of UIEB train), T90 never used for selection |
+
+## Training on Kaggle
+
+Training runs as private Kaggle script kernels (2×T4), driven locally:
+
+```bash
+python3 kaggle/launch.py sync-code               # upload git HEAD as private dataset argus-code
+python3 kaggle/launch.py push semi-uir-check     # ~15 min sanity run (official weights + smoke train)
+python3 kaggle/launch.py push semi-uir-uieb      # protocol run A, session 1
+python3 kaggle/launch.py status semi-uir-uieb
+python3 kaggle/launch.py next semi-uir-uieb      # after a session ends: fetch, save state, resume
+```
+
+Each session stops cleanly before Kaggle's 12 h limit. `next` downloads its
+output to `runs/<job>/<stamp>/`, re-uploads the checkpoint + reliable bank as a
+private `argus-state-<job>` dataset, and starts the following session from it.
+
+## Export and demo
+
+```bash
+# pick the best checkpoint (highest val PSNR) across fetched sessions and export it
+.venv/bin/python scripts/export_best.py --model semi_uir --kaggle-job semi-uir-uieb
+# before any training has finished: export the official released weights
+.venv/bin/python scripts/export_best.py --model semi_uir --official baselines/semi_uir/pretrained/model.pth
+
+bash scripts/fetch_demo_examples.sh               # a few UIEB T90 images for the demo
+.venv/bin/python demo/app.py --model semi_uir     # http://127.0.0.1:7860
+```
+
+The exporter only reads `ckpt/best.pt` / `metrics.jsonl` (written atomically
+by the trainer) and only fetches *finished* Kaggle sessions, so it never
+interferes with a running one. It replaces the current export only with a
+better one, switching `exports/<model>/current.json` atomically; the demo
+watches that file and hot-reloads the new weights. `--watch 600` repeats the
+export periodically.
+
 ## Layout
 
 ```
 configs/    dataset paths and sources
 splits/     train/test filename lists
-uie/        shared metric implementations
-scripts/    data download, split generation, evaluation
-tests/      metric tests
+uie/        shared metrics, baseline adapters, compatibility shims
+scripts/    data, splits, training, inference, evaluation, export
+kaggle/     Kaggle kernel entry point and launcher
+demo/       Flask demo website
+tests/      metric, shim, export and demo tests
+runs/       fetched Kaggle session outputs (gitignored)
+exports/    exported weights served by the demo (gitignored)
 baselines/  cloned third-party baseline repos (gitignored)
 data/       datasets (gitignored)
 ```
