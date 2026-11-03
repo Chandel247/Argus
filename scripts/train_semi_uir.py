@@ -190,17 +190,19 @@ def main(argv=None):
                  iter_per_epoch=len(unpaired_loader), writer=_NullWriter())
     tr.freeze_teachers_parameters()
 
-    # Upstream creates MUSIQ with as_loss=True, so every reliable-bank scoring
-    # call keeps a full autograd graph -- but all three call sites immediately
-    # .detach() the scores and only compare them. Scoring under no_grad is
-    # numerically identical and avoids OOM on 16 GB GPUs.
-    _iqa = tr.iqa_metric
-
-    def iqa_no_grad(x):
-        with torch.no_grad():
-            return _iqa(x)
-
-    tr.iqa_metric = iqa_no_grad
+    # Upstream creates MUSIQ with as_loss=True and indexes the result per image.
+    # In current pyiqa, as_loss=True averages over the batch (a 0-d tensor, so
+    # upstream crashes) and keeps an autograd graph (OOM on 16 GB GPUs). All
+    # call sites .detach() the scores and only compare them, so a per-image,
+    # no-grad MUSIQ restores the intended behaviour. The range check is off
+    # because raw network outputs can fall slightly outside [0, 1].
+    import pyiqa
+    del tr.iqa_metric
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    musiq = pyiqa.create_metric("musiq", as_loss=False, check_input_range=False,
+                                device=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    tr.iqa_metric = lambda x: musiq(x).reshape(-1)
 
     best = -1.0
     start = 1
