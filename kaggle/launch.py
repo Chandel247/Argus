@@ -108,7 +108,7 @@ def cmd_push(a):
     cfg = {k: v for k, v in job.items() if k not in ("title", "timeout")}
     src = (ROOT / "kaggle" / "kernel_main.py").read_text()
     assert "CONFIG = {}" in src
-    code = src.replace("CONFIG = {}", "CONFIG = " + json.dumps(cfg), 1)
+    code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
     sources = [f"{username()}/argus-code", *DATASETS.values()]
     if a.resume:
         sources.append(f"{username()}/argus-state-{a.job}")
