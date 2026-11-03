@@ -151,6 +151,19 @@ def main(argv=None):
     from model import AIMnet
     from trainer import Trainer
     from utils import create_emamodel, initialize_weights, setup_seed
+    import trainer as upstream_trainer
+
+    def compute_psnr_ssim(recoverd, clean):
+        """Upstream utils.compute_psnr_ssim with skimage's removed
+        multichannel=True replaced by channel_axis=-1 (same computation)."""
+        from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+        r = np.clip(recoverd.detach().cpu().numpy(), 0, 1).transpose(0, 2, 3, 1)
+        c = np.clip(clean.detach().cpu().numpy(), 0, 1).transpose(0, 2, 3, 1)
+        psnr = sum(peak_signal_noise_ratio(c[i], r[i], data_range=1) for i in range(len(r)))
+        ssim = sum(structural_similarity(c[i], r[i], data_range=1, channel_axis=-1) for i in range(len(r)))
+        return psnr / len(r), ssim / len(r), len(r)
+
+    upstream_trainer.compute_psnr_ssim = compute_psnr_ssim  # trainer did `from utils import *`
 
     run = args.run_dir
     (run / "ckpt").mkdir(parents=True, exist_ok=True)
