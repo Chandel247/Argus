@@ -1,0 +1,34 @@
+# Dataset sources and layout. Paths are relative to data_root.
+data_root: data
+
+uieb:
+  kaggle: naomirory2/uieb-final
+  input: uieb/raw-890
+  target: uieb/reference-890
+  split_train: splits/uieb_train.txt   # 800, seed 42 (scripts/make_splits.py)
+  split_test: splits/uieb_test.txt     # 90  (T90, full-reference)
+  no_ref_test: uieb/challenging-60     # C60, no-reference
+
+lsui:
+  # Full paired LSUI (4279 input + 4279 GT, filename-matched).
+  # Original release: Peng et al., "U-Shape Transformer for Underwater Image
+  # Enhancement", IEEE TIP 2023. Mirrors with identical layout:
+  #   ohmahler91/lsui-dataset, cbhavik/lsui-dataset
+  kaggle: noureldin199/lsui-large-scale-underwater-image-dataset
+  input: lsui/LSUI/input
+  target: lsui/LSUI/GT
+  split_train: splits/lsui_train.txt   # 3879, team's existing split
+  split_test: splits/lsui_test.txt     # 400 (L400)
+
+ruod:
+  # External test only: no reference images. Used for no-reference metrics
+  # and downstream detection mAP.
+  kaggle: naomirory2/ruod-final
+  train: ruod/RUOD_pic/train           # 9800, for training the detector
+  test: ruod/RUOD_pic/test             # 4200
+  annotations: ruod/RUOD_ANN
+  env_subsets:                         # 100 each, per-degradation analysis
+    blur: ruod/Environment_pic/blur
+    color: ruod/Environment_pic/color
+    light: ruod/Environment_pic/light
+  env_annotations: ruod/Environmet_ANN  # sic, folder name as uploaded

@@ -1,0 +1,32 @@
+# Data and outputs (large, re-downloadable)
+data/*
+!data/.gitkeep
+checkpoints/
+results/*/images/
+runs/
+wandb/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Third-party baseline code is cloned, not vendored
+baselines/*
+!baselines/.gitkeep
+!baselines/README.md
+
+# Reference papers
+*.pdf
+
+# Python / env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.env
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
