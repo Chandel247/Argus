@@ -3,7 +3,9 @@
 Finds the attached code/data/state inputs under /kaggle/input by content (so
 it does not depend on Kaggle's mount naming), then runs CONFIG["steps"]:
   check_official  official Semi-UIR weights on UIEB T90 (validates our shims)
-  train           scripts/train_semi_uir.py, resuming from attached state
+  train           scripts/train_semi_uir.py, resuming from attached state;
+                  if the trainer is SIGKILLed (host OOM) it is restarted from
+                  its own last checkpoint, up to CONFIG["kill_retries"] times
   test            best checkpoint on T90 / C60 / L400 + shared metrics
 Everything worth keeping is written to /kaggle/working (the kernel output).
 """
@@ -18,6 +20,7 @@ import time
 from pathlib import Path
 
 INPUT, OUT, TMP = Path("/kaggle/input"), Path("/kaggle/working"), Path("/tmp/argus")
+T0 = time.time()
 
 
 def log(msg):
@@ -37,6 +40,22 @@ def find_dir(marker: str, depth: int = 6) -> Path | None:
 def sh(cmd, **kw):
     log("$ " + " ".join(map(str, cmd)))
     subprocess.run([str(c) for c in cmd], check=True, **kw)
+
+
+def memory_report(run: Path):
+    """After a failure: container OOM-kill counter and the last telemetry lines."""
+    try:
+        sys.path.insert(0, str(TMP))
+        from uie.runstate import cgroup_memory, gb
+        m = cgroup_memory()
+        log(f"cgroup: oom_kills={m['oom_kills']} current={gb(m['cg_current'])}GB "
+            f"peak={gb(m['cg_peak'])}GB max={gb(m['cg_max'])}GB")
+    except Exception as e:
+        log(f"cgroup read failed: {e}")
+    mem = run / "mem.log"
+    if mem.exists():
+        for line in mem.read_text().splitlines()[-5:]:
+            log(f"mem.log: {line}")
 
 
 def main():
@@ -86,7 +105,29 @@ def main():
                 cmd += ["--resume-from", state]
             if CONFIG.get("smoke"):
                 cmd += ["--smoke"]
-            sh(cmd)
+            retries = CONFIG.get("kill_retries", 2)
+            while True:
+                try:
+                    sh(cmd)
+                    break
+                except subprocess.CalledProcessError as e:
+                    memory_report(run)
+                    if e.returncode != -9 or retries <= 0 or not (run / "ckpt/last.pt").exists():
+                        raise
+                    retries -= 1
+                    log(f"trainer was SIGKILLed; restarting from {run}/ckpt/last.pt ({retries} retries left)")
+                    # state is now in the run dir; --max-hours counts from the
+                    # restart, so shrink it by the time already used
+                    used = (time.time() - T0) / 3600
+                    cmd = [c for c in cmd]
+                    if "--resume-from" in cmd:
+                        i = cmd.index("--resume-from")
+                        del cmd[i:i + 2]
+                    i = cmd.index("--max-hours")
+                    cmd[i + 1] = round(CONFIG.get("max_hours", 11) - used, 2)
+                    if cmd[i + 1] < 0.5:
+                        log("not enough session time left to restart")
+                        raise
 
         elif step == "test":
             best = run / "ckpt/best.pt"

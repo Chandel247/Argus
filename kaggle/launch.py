@@ -36,13 +36,20 @@ JOBS = {
     "semi-uir-check": {"title": "argus semi-uir check", "steps": ["train", "train_resume"],
                        "epochs": 2, "smoke": True, "max_hours": 1, "timeout": 3600},
     # protocol run A: train UIEB, test T90/C60/L400
+    # 6 h sessions: fresh checkpoints for the demo more often, and a lost
+    # session costs less quota
     "semi-uir-uieb": {"title": "argus semi-uir uieb", "steps": ["train", "test"],
-                      "epochs": 200, "max_hours": 11, "result_name": "semi_uir"},
+                      "epochs": 200, "max_hours": 6, "kill_retries": 2, "result_name": "semi_uir"},
 }
+# Only what resuming, exporting and reporting need. The bank and LA maps are
+# single .pack files; anything else in the output (e.g. a legacy run/bank/ of
+# 800 PNGs, *.tmp files of an interrupted write) is skipped.
+OUTPUT_PATTERN = (r"^(run/(ckpt/(best|last)\.pt|metrics\.jsonl|mem\.log|DONE|bank\.pack|la\.pack)"
+                  r"|results/.*|[^/]+\.log)$")
 ACCELERATOR = "NvidiaTeslaT4"  # 2x T4; P100 (sm_60) is unsupported by current PyTorch builds
 
 
-def kaggle(*args, capture=False, check=True):
+def kaggle(*args, capture=False, check=True, rc=False):
     cmd = ["kaggle", *map(str, args)]
     print("$ " + " ".join(cmd), file=sys.stderr)
     r = subprocess.run(cmd, capture_output=capture, text=True)
@@ -50,6 +57,8 @@ def kaggle(*args, capture=False, check=True):
         if capture:
             print(r.stdout, r.stderr, file=sys.stderr)
         raise SystemExit(f"kaggle command failed ({r.returncode})")
+    if rc:
+        return r.returncode
     return r.stdout if capture else None
 
 
@@ -145,7 +154,15 @@ def latest_fetch(job) -> Path:
 def cmd_fetch(a):
     dest = RUNS / a.job / time.strftime("%Y%m%d-%H%M%S")
     dest.mkdir(parents=True)
-    kaggle("kernels", "output", kernel_slug(a.job), "-p", dest)
+    for attempt in range(1, 4):  # the output API sometimes drops large outputs midway
+        rc = kaggle("kernels", "output", kernel_slug(a.job), "-p", dest, "--file-pattern", OUTPUT_PATTERN,
+                    "--force", check=False, rc=True)
+        if rc == 0 and ((dest / "run/ckpt/last.pt").exists() or not (dest / "run").exists()):
+            break
+        if attempt == 3:
+            raise SystemExit(f"fetch incomplete after 3 attempts (partial files in {dest})")
+        print(f"fetch attempt {attempt} incomplete (rc={rc}); retrying", file=sys.stderr)
+        time.sleep(15 * attempt)
     print(f"fetched to {dest}")
     run = dest / "run"
     if (run / "metrics.jsonl").exists():
@@ -160,7 +177,13 @@ def cmd_save_state(a):
         raise SystemExit(f"no ckpt/last.pt in {run}")
     with tempfile.TemporaryDirectory() as d:
         state = Path(d) / "state"
-        shutil.copytree(run, state, ignore=shutil.ignore_patterns("_work"))
+        shutil.copytree(run, state, ignore=shutil.ignore_patterns("_work", "bank", "*.tmp"))
+        if (run / "bank").is_dir() and not (run / "bank.pack").exists():
+            # legacy layout (bank as 800 files): ship it as one pack
+            sys.path.insert(0, str(ROOT))
+            from uie.runstate import write_pack
+            n = write_pack({"bank": run / "bank"}, state / "bank.pack")
+            print(f"packed legacy bank ({n} images)")
         upload_dataset(f"{username()}/argus-state-{a.job}", state, f"argus-state-{a.job}",
                        f"state from {run.parent.name}")
 

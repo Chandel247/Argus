@@ -103,11 +103,13 @@ def export(model: str, cand: dict, out_root: Path, force: bool) -> bool:
 
 
 def fetch_kaggle(job: str):
-    """Fetch the newest *finished* session; never touches a running one."""
+    """Fetch the newest *finished* session; never touches a running one.
+    Sessions that ended in an error (e.g. the trainer was killed) count as
+    finished: checkpoints are written atomically and the fetch skips *.tmp."""
     r = subprocess.run([sys.executable, str(ROOT / "kaggle" / "launch.py"), "status", job],
                        capture_output=True, text=True)
     status = (r.stdout + r.stderr).lower()
-    if "complete" not in status:
+    if not any(w in status for w in ("complete", "error", "cancel")):
         print(f"{job}: latest session not complete ({status.strip().splitlines()[-1] if status.strip() else '?'}); "
               "using sessions already fetched")
         return

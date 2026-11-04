@@ -97,9 +97,20 @@ python3 kaggle/launch.py status semi-uir-uieb
 python3 kaggle/launch.py next semi-uir-uieb      # after a session ends: fetch, save state, resume
 ```
 
-Each session stops cleanly before Kaggle's 12 h limit. `next` downloads its
-output to `runs/<job>/<stamp>/`, re-uploads the checkpoint + reliable bank as a
-private `argus-state-<job>` dataset, and starts the following session from it.
+Each session stops cleanly after `max_hours` (6 h for `semi-uir-uieb`). `next`
+downloads its output to `runs/<job>/<stamp>/`, re-uploads the checkpoint, the
+reliable bank and the cached illumination maps as a private
+`argus-state-<job>` dataset, and starts the following session from it.
+
+Robustness, after a session was SIGKILLed mid-epoch with no traceback:
+- `run/mem.log` records process-tree RSS and the container's cgroup memory and
+  OOM-kill counter every minute (also summarised per epoch in `metrics.jsonl`);
+- the kernel restarts a SIGKILLed trainer from its last checkpoint (up to
+  `kill_retries` times) and logs the cgroup OOM count;
+- the bank and illumination maps are single files (`bank.pack`, `la.pack`;
+  uncompressed tars), and `fetch` downloads only the files needed to resume,
+  export and report, retrying incomplete downloads;
+- illumination maps are computed once, in parallel, then restored from `la.pack`.
 
 ## Export and demo
 
@@ -114,7 +125,7 @@ bash scripts/fetch_demo_examples.sh               # a few UIEB T90 images for th
 ```
 
 The exporter only reads `ckpt/best.pt` / `metrics.jsonl` (written atomically
-by the trainer) and only fetches *finished* Kaggle sessions, so it never
+by the trainer) and only fetches *finished* Kaggle sessions (including ones that ended in an error), so it never
 interferes with a running one. It replaces the current export only with a
 better one, switching `exports/<model>/current.json` atomically; the demo
 watches that file and hot-reloads the new weights. `--watch 600` repeats the
