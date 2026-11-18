@@ -112,6 +112,23 @@ Robustness, after a session was SIGKILLed mid-epoch with no traceback:
   export and report, retrying incomplete downloads;
 - illumination maps are computed once, in parallel, then restored from `la.pack`.
 
+## Detection on RUOD (downstream test)
+
+A YOLO11 detector (Ultralytics 8.4.180, COCO-pretrained `yolo11s.pt`) is
+fine-tuned on RUOD and used to measure whether enhancement helps detection.
+Splits (seed-controlled, `scripts/make_ruod_splits.py`): 8,820 train /
+980 val (held out of RUOD train, picks the best epoch) / 4,200 test, plus the
+shared **400-image benchmark** `splits/ruod_bench400.txt` drawn from test with
+class shares preserved. Details, statistics and how to score an enhancement
+method: [docs/ruod_benchmark.md](docs/ruod_benchmark.md).
+
+```bash
+python3 kaggle/launch.py push yolo-ruod-check   # 1 epoch: times data prep + an epoch
+python3 kaggle/launch.py push yolo-ruod         # full fine-tune, then mAP on bench400/test/blur/color/light
+python scripts/eval_detection.py --weights best.pt --images <enhanced bench400> \
+    --ann <RUOD>/RUOD_ANN/instances_test.json --name <method>
+```
+
 ## Export and demo
 
 ```bash

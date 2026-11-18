@@ -28,6 +28,7 @@ RUNS = ROOT / "runs"
 DATASETS = {
     "uieb": "naomirory2/uieb-final",
     "lsui": "noureldin199/lsui-large-scale-underwater-image-dataset",
+    "ruod": "naomirory2/ruod-final",
 }
 
 JOBS = {
@@ -40,7 +41,19 @@ JOBS = {
     # session costs less quota
     "semi-uir-uieb": {"title": "argus semi-uir uieb", "steps": ["train", "test"],
                       "epochs": 200, "max_hours": 6, "kill_retries": 2, "result_name": "semi_uir"},
+    # YOLO on RUOD: one full epoch + a benchmark eval, to time data prep and an epoch
+    "yolo-ruod-check": {"title": "argus yolo ruod check", "datasets": ["ruod"],
+                        "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",
+                        "epochs": 1, "max_hours": 1.5, "eval_sets": ["bench400"], "eval_only_when_done": False,
+                        "prepare_sets": ["train", "val", "bench400"], "result_name": "yolo11s_ruod_check",
+                        "timeout": 7200, "state_marker": "yolo/weights/last.pt"},
+    "yolo-ruod": {"title": "argus yolo ruod", "datasets": ["ruod"],
+                  "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",
+                  "epochs": 100, "max_hours": 10.5, "result_name": "yolo11s_ruod",
+                  "state_marker": "yolo/weights/last.pt"},
 }
+YOLO_PATTERN = (r"^(run/(yolo/(weights/(best|last)\.pt|results\.csv|args\.yaml|[^/]+\.(png|jpg))"
+                r"|mem\.log|DONE)|results/.*|[^/]+\.log)$")
 # Only what resuming, exporting and reporting need. The bank and LA maps are
 # single .pack files; anything else in the output (e.g. a legacy run/bank/ of
 # 800 PNGs, *.tmp files of an interrupted write) is skipped.
@@ -115,11 +128,11 @@ def kernel_slug(job):
 
 def cmd_push(a):
     job = JOBS[a.job]
-    cfg = {k: v for k, v in job.items() if k not in ("title", "timeout")}
+    cfg = {k: v for k, v in job.items() if k not in ("title", "timeout", "datasets", "state_marker")}
     src = (ROOT / "kaggle" / "kernel_main.py").read_text()
     assert "CONFIG = {}" in src
     code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
-    sources = [f"{username()}/argus-code", *DATASETS.values()]
+    sources = [f"{username()}/argus-code", *(DATASETS[d] for d in job.get("datasets", ["uieb", "lsui"]))]
     if a.resume:
         sources.append(f"{username()}/argus-state-{a.job}")
     meta = {"id": kernel_slug(a.job), "title": job["title"], "code_file": "main.py", "language": "python",
@@ -155,9 +168,12 @@ def cmd_fetch(a):
     dest = RUNS / a.job / time.strftime("%Y%m%d-%H%M%S")
     dest.mkdir(parents=True)
     for attempt in range(1, 4):  # the output API sometimes drops large outputs midway
-        rc = kaggle("kernels", "output", kernel_slug(a.job), "-p", dest, "--file-pattern", OUTPUT_PATTERN,
+        job = JOBS[a.job]
+        pattern = YOLO_PATTERN if "yolo_train" in job["steps"] else OUTPUT_PATTERN
+        marker = dest / "run" / job.get("state_marker", "ckpt/last.pt")
+        rc = kaggle("kernels", "output", kernel_slug(a.job), "-p", dest, "--file-pattern", pattern,
                     "--force", check=False, rc=True)
-        if rc == 0 and ((dest / "run/ckpt/last.pt").exists() or not (dest / "run").exists()):
+        if rc == 0 and (marker.exists() or not (dest / "run").exists()):
             break
         if attempt == 3:
             raise SystemExit(f"fetch incomplete after 3 attempts (partial files in {dest})")
@@ -173,8 +189,9 @@ def cmd_fetch(a):
 
 def cmd_save_state(a):
     run = latest_fetch(a.job) / "run"
-    if not (run / "ckpt" / "last.pt").exists():
-        raise SystemExit(f"no ckpt/last.pt in {run}")
+    marker = JOBS[a.job].get("state_marker", "ckpt/last.pt")
+    if not (run / marker).exists():
+        raise SystemExit(f"no {marker} in {run}")
     with tempfile.TemporaryDirectory() as d:
         state = Path(d) / "state"
         shutil.copytree(run, state, ignore=shutil.ignore_patterns("_work", "bank", "*.tmp"))

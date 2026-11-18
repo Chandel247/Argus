@@ -1,0 +1,73 @@
+{
+  "seed": 127,
+  "n_images": 400,
+  "n_boxes": 2142,
+  "n_boxes_test": 22969,
+  "classes": {
+    "holothurian": {
+      "images": 74,
+      "boxes": 236,
+      "image_share": 0.185,
+      "image_share_in_test": 0.18
+    },
+    "echinus": {
+      "images": 74,
+      "boxes": 339,
+      "image_share": 0.185,
+      "image_share_in_test": 0.1919
+    },
+    "scallop": {
+      "images": 43,
+      "boxes": 202,
+      "image_share": 0.1075,
+      "image_share_in_test": 0.104
+    },
+    "starfish": {
+      "images": 74,
+      "boxes": 234,
+      "image_share": 0.185,
+      "image_share_in_test": 0.1857
+    },
+    "fish": {
+      "images": 88,
+      "boxes": 377,
+      "image_share": 0.22,
+      "image_share_in_test": 0.23
+    },
+    "corals": {
+      "images": 74,
+      "boxes": 229,
+      "image_share": 0.185,
+      "image_share_in_test": 0.19
+    },
+    "diver": {
+      "images": 94,
+      "boxes": 179,
+      "image_share": 0.235,
+      "image_share_in_test": 0.2219
+    },
+    "cuttlefish": {
+      "images": 82,
+      "boxes": 147,
+      "image_share": 0.205,
+      "image_share_in_test": 0.1929
+    },
+    "turtle": {
+      "images": 92,
+      "boxes": 141,
+      "image_share": 0.23,
+      "image_share_in_test": 0.2179
+    },
+    "jellyfish": {
+      "images": 31,
+      "boxes": 58,
+      "image_share": 0.0775,
+      "image_share_in_test": 0.0774
+    }
+  },
+  "in_env_subsets": {
+    "blur": 12,
+    "color": 8,
+    "light": 12
+  }
+}

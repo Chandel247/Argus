@@ -7,6 +7,9 @@ it does not depend on Kaggle's mount naming), then runs CONFIG["steps"]:
                   if the trainer is SIGKILLed (host OOM) it is restarted from
                   its own last checkpoint, up to CONFIG["kill_retries"] times
   test            best checkpoint on T90 / C60 / L400 + shared metrics
+  ruod_prepare    RUOD -> YOLO dataset in /tmp/ruod_yolo (scripts/prepare_ruod_yolo.py)
+  yolo_train      fine-tune YOLO on RUOD (scripts/train_yolo.py), resumable
+  yolo_eval       best.pt on the RUOD evaluation sets (scripts/eval_detection.py)
 Everything worth keeping is written to /kaggle/working (the kernel output).
 """
 CONFIG = {}  # replaced by launch.py
@@ -58,6 +61,69 @@ def memory_report(run: Path):
             log(f"mem.log: {line}")
 
 
+YOLO_DATA = Path("/tmp/ruod_yolo")
+EVAL_SPLITS = {"test": "ruod_test.txt", "bench400": "ruod_bench400.txt", "blur": "ruod_env_blur.txt",
+               "color": "ruod_env_color.txt", "light": "ruod_env_light.txt"}
+
+
+def run_detection(py):
+    """RUOD detection jobs (YOLO fine-tuning)."""
+    ruod = find_dir("RUOD_pic/test")
+    assert ruod, "RUOD dataset not attached"
+    log(f"ruod={ruod}")
+    sh([py, "-m", "pip", "install", "-q", CONFIG.get("ultralytics", "ultralytics==8.4.180")])
+    sh([py, "-c", "import ultralytics, torch; print('ultralytics', ultralytics.__version__, 'torch', torch.__version__)"])
+    run = OUT / "run"
+    name = CONFIG.get("run_name", "yolo")
+    weights = run / name / "weights"
+    for step in CONFIG["steps"]:
+        log(f"=== step: {step}")
+        if step == "ruod_prepare":
+            cmd = [py, "scripts/prepare_ruod_yolo.py", "--ruod", ruod, "--out", YOLO_DATA]
+            if CONFIG.get("prepare_sets"):
+                cmd += ["--sets", ",".join(CONFIG["prepare_sets"])]
+            sh(cmd)
+        elif step == "yolo_train":
+            state = find_dir(f"{name}/weights/last.pt")
+            if state and not (run / name / "weights" / "last.pt").exists():
+                log(f"restoring state from {state}")
+                shutil.copytree(state, run, dirs_exist_ok=True)
+            if (run / "DONE").exists():
+                log("training already finished")
+                continue
+            base = [py, "scripts/train_yolo.py", "--data", YOLO_DATA / "data.yaml", "--project", run,
+                    "--name", name, "--model", CONFIG.get("model", "yolo11s.pt"),
+                    "--epochs", CONFIG.get("epochs", 100), "--batch", CONFIG.get("batch", 32),
+                    "--imgsz", CONFIG.get("imgsz", 640), "--fraction", CONFIG.get("fraction", 1.0)]
+            retries = CONFIG.get("kill_retries", 1)
+            while True:
+                budget = CONFIG.get("max_hours", 10) - (time.time() - T0) / 3600
+                cmd = base + ["--max-hours", round(budget, 2)]
+                if (weights / "last.pt").exists():
+                    cmd += ["--resume"]
+                try:
+                    sh(cmd)
+                    break
+                except subprocess.CalledProcessError as e:
+                    memory_report(run)
+                    if e.returncode != -9 or retries <= 0 or not (weights / "last.pt").exists() or budget < 0.5:
+                        raise
+                    retries -= 1
+                    log(f"trainer was SIGKILLed; resuming from {weights / 'last.pt'}")
+        elif step == "yolo_eval":
+            best = weights / "best.pt"
+            if not best.exists() or (CONFIG.get("eval_only_when_done", True) and not (run / "DONE").exists()):
+                log("skipping eval: training not finished")
+                continue
+            for s in CONFIG.get("eval_sets", ["bench400", "test", "blur", "color", "light"]):
+                sh([py, "scripts/eval_detection.py", "--weights", best, "--images", YOLO_DATA / "images" / s,
+                    "--ann", ruod / "RUOD_ANN/instances_test.json", "--split", f"splits/{EVAL_SPLITS[s]}",
+                    "--name", CONFIG.get("result_name", "yolo_ruod"), "--dataset", f"ruod_{s}",
+                    "--out", OUT / "results"])
+        else:
+            raise SystemExit(f"unknown step {step}")
+
+
 def main():
     log(f"config: {json.dumps(CONFIG)}")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
@@ -74,11 +140,15 @@ def main():
         sh([py, "-m", "pip", "install", "-q", *missing])
     sh(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv"])
 
+    run = OUT / "run"
+    if any(st in CONFIG["steps"] for st in ("ruod_prepare", "yolo_train", "yolo_eval")):
+        run_detection(py)
+        log("all steps done")
+        return
     uieb = find_dir("raw-890")
     lsui = find_dir("input/0.jpg")  # LSUI/input + LSUI/GT
     assert uieb and lsui, f"datasets not found: uieb={uieb} lsui={lsui}"
     log(f"uieb={uieb} lsui={lsui}")
-    run = OUT / "run"
 
     for step in CONFIG["steps"]:
         log(f"=== step: {step}")
