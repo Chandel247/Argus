@@ -133,6 +133,11 @@ def main():
         shutil.rmtree(TMP)
     shutil.copytree(code_src, TMP)
     os.chdir(TMP)
+    got = (TMP / "GIT_COMMIT").read_text().strip() if (TMP / "GIT_COMMIT").exists() else "?"
+    want = CONFIG.get("code_commit")
+    log(f"code at {got}")
+    if want and got != want:
+        raise SystemExit(f"attached argus-code is {got}, expected {want}: Kaggle mounted an older version")
     py = sys.executable
 
     missing = [m for m in ("pyiqa", "adamp") if subprocess.run([py, "-c", f"import {m}"]).returncode]

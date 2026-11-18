@@ -106,8 +106,7 @@ def upload_dataset(ref, folder: Path, title, message):
 
 
 def cmd_sync_code(_):
-    head = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True,
-                          text=True, check=True).stdout.strip()
+    head = head_commit()
     dirty = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "--untracked-files=no"],
                            capture_output=True, text=True).stdout.strip()
     if dirty:
@@ -123,6 +122,30 @@ def cmd_sync_code(_):
     print(f"code synced at {head}")
 
 
+def head_commit() -> str:
+    return subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True,
+                          text=True, check=True).stdout.strip()
+
+
+def wait_code_version(commit: str, timeout=900):
+    """Block until the newest argus-code version on Kaggle is `commit`. A
+    dataset reports ready before new sessions get the new version, and a
+    session that mounts the previous one runs old code (seen 2026-11-18)."""
+    ref = f"{username()}/argus-code"
+    t0 = time.time()
+    while True:
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["kaggle", "datasets", "download", ref, "-f", "GIT_COMMIT", "-p", d, "-q"],
+                           capture_output=True, text=True)
+            got = next((p.read_text().strip() for p in Path(d).glob("GIT_COMMIT*") if p.is_file()), "")
+        if got == commit:
+            return
+        if time.time() - t0 > timeout:
+            raise SystemExit(f"argus-code on Kaggle is at {got or '?'}, not {commit}; run sync-code")
+        print(f"waiting for argus-code {commit} on Kaggle (now {got or '?'})", file=sys.stderr)
+        time.sleep(20)
+
+
 def kernel_slug(job):
     return f"{username()}/argus-{job}"
 
@@ -130,6 +153,8 @@ def kernel_slug(job):
 def cmd_push(a):
     job = JOBS[a.job]
     cfg = {k: v for k, v in job.items() if k not in ("title", "timeout", "datasets", "state_marker")}
+    cfg["code_commit"] = head_commit()
+    wait_code_version(cfg["code_commit"])
     src = (ROOT / "kaggle" / "kernel_main.py").read_text()
     assert "CONFIG = {}" in src
     code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
