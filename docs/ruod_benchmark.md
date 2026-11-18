@@ -72,8 +72,11 @@ Each run writes `results/<name>/ruod_bench400_det.json` with mAP50, mAP50-95,
 precision, recall and per-class AP. Use the same `--imgsz` (default 640) for
 every method.
 
-The detector weights (`best.pt`) come from the `yolo-ruod` Kaggle job; ask for
-the current file or fetch it with `python kaggle/launch.py fetch yolo-ruod`.
+The detector weights are in the private Kaggle dataset
+[`naomirory2/argus-yolo11s-ruod`](https://www.kaggle.com/datasets/naomirory2/argus-yolo11s-ruod)
+(`yolo11s_ruod_best.pt`; ask for access). Download with
+`kaggle datasets download naomirory2/argus-yolo11s-ruod -f yolo11s_ruod_best.pt`, or attach
+the dataset to a Kaggle notebook. They come from the `yolo-ruod` Kaggle job.
 
 ## Reference detector (raw images)
 
