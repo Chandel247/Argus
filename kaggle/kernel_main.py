@@ -45,6 +45,18 @@ def sh(cmd, **kw):
     subprocess.run([str(c) for c in cmd], check=True, **kw)
 
 
+def check_state(state: Path | None):
+    """Refuse to resume from an older state version than the one launch.py uploaded."""
+    want = CONFIG.get("state_id")
+    if not state or not want:
+        return
+    f = state / "STATE_ID"
+    got = f.read_text().strip() if f.exists() else "?"
+    log(f"state {got}")
+    if got != want:
+        raise SystemExit(f"attached state is {got}, expected {want}: Kaggle mounted an older version")
+
+
 def memory_report(run: Path):
     """After a failure: container OOM-kill counter and the last telemetry lines."""
     try:
@@ -85,6 +97,7 @@ def run_detection(py):
             sh(cmd)
         elif step == "yolo_train":
             state = find_dir(f"{name}/weights/last.pt")
+            check_state(state)
             if state and not (run / name / "weights" / "last.pt").exists():
                 log(f"restoring state from {state}")
                 shutil.copytree(state, run, dirs_exist_ok=True)
@@ -171,6 +184,7 @@ def main():
             # train_resume: run the trainer again for one more epoch; it must
             # continue from run/ckpt/last.pt (tests resume within one session)
             state = find_dir("ckpt/last.pt") if step == "train" else None
+            check_state(state)
             epochs = CONFIG.get("epochs", 200) + (1 if step == "train_resume" else 0)
             cmd = [py, "scripts/train_semi_uir.py", "--uieb", uieb, "--lsui", lsui,
                    "--run-dir", run, "--work-dir", "/tmp/work",

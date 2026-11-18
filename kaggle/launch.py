@@ -127,23 +127,27 @@ def head_commit() -> str:
                           text=True, check=True).stdout.strip()
 
 
-def wait_code_version(commit: str, timeout=900):
-    """Block until the newest argus-code version on Kaggle is `commit`. A
-    dataset reports ready before new sessions get the new version, and a
-    session that mounts the previous one runs old code (seen 2026-11-18)."""
-    ref = f"{username()}/argus-code"
+def wait_version(ref: str, filename: str, want: str, timeout=900):
+    """Block until the newest version of dataset `ref` has `filename` == `want`.
+    A dataset reports ready before new sessions get the new version, and a
+    session that mounts the previous one runs old code or restarts from old
+    state (both seen 2026-11-18)."""
     t0 = time.time()
     while True:
         with tempfile.TemporaryDirectory() as d:
-            subprocess.run(["kaggle", "datasets", "download", ref, "-f", "GIT_COMMIT", "-p", d, "-q"],
+            subprocess.run(["kaggle", "datasets", "download", ref, "-f", filename, "-p", d, "-q"],
                            capture_output=True, text=True)
-            got = next((p.read_text().strip() for p in Path(d).glob("GIT_COMMIT*") if p.is_file()), "")
-        if got == commit:
+            got = next((p.read_text().strip() for p in Path(d).glob(filename + "*") if p.is_file()), "")
+        if got == want:
             return
         if time.time() - t0 > timeout:
-            raise SystemExit(f"argus-code on Kaggle is at {got or '?'}, not {commit}; run sync-code")
-        print(f"waiting for argus-code {commit} on Kaggle (now {got or '?'})", file=sys.stderr)
+            raise SystemExit(f"{ref} on Kaggle has {filename}={got or '?'}, not {want}")
+        print(f"waiting for {ref} {filename}={want} on Kaggle (now {got or '?'})", file=sys.stderr)
         time.sleep(20)
+
+
+def wait_code_version(commit: str):
+    wait_version(f"{username()}/argus-code", "GIT_COMMIT", commit)
 
 
 def kernel_slug(job):
@@ -160,7 +164,10 @@ def cmd_push(a):
     code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
     sources = [f"{username()}/argus-code", *(DATASETS[d] for d in job.get("datasets", ["uieb", "lsui"]))]
     if a.resume:
-        sources.append(f"{username()}/argus-state-{a.job}")
+        ref = f"{username()}/argus-state-{a.job}"
+        cfg["state_id"] = latest_fetch(a.job).name
+        wait_version(ref, "STATE_ID", cfg["state_id"])
+        sources.append(ref)
     meta = {"id": kernel_slug(a.job), "title": job["title"], "code_file": "main.py", "language": "python",
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
             "machine_shape": ACCELERATOR, "dataset_sources": sources, "kernel_sources": [],
@@ -220,7 +227,8 @@ def cmd_save_state(a):
         raise SystemExit(f"no {marker} in {run}")
     with tempfile.TemporaryDirectory() as d:
         state = Path(d) / "state"
-        shutil.copytree(run, state, ignore=shutil.ignore_patterns("_work", "bank", "*.tmp"))
+        shutil.copytree(run, state, ignore=shutil.ignore_patterns("_work", "bank", "*.tmp", "STATE_ID"))
+        (state / "STATE_ID").write_text(run.parent.name + "\n")  # checked by push and the kernel
         if (run / "bank").is_dir() and not (run / "bank.pack").exists():
             # legacy layout (bank as 800 files): ship it as one pack
             sys.path.insert(0, str(ROOT))
