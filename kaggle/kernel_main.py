@@ -175,17 +175,24 @@ def main():
                 cmd += ["--resume-from", state]
             if CONFIG.get("smoke"):
                 cmd += ["--smoke"]
+            if CONFIG.get("restart_every"):
+                cmd += ["--restart-every", CONFIG["restart_every"]]
             retries = CONFIG.get("kill_retries", 2)
             while True:
                 try:
                     sh(cmd)
                     break
                 except subprocess.CalledProcessError as e:
-                    memory_report(run)
-                    if e.returncode != -9 or retries <= 0 or not (run / "ckpt/last.pt").exists():
+                    planned = e.returncode == 3  # trainer asked for a fresh process (--restart-every)
+                    if not planned:
+                        memory_report(run)
+                    if not planned and (e.returncode != -9 or retries <= 0) or not (run / "ckpt/last.pt").exists():
                         raise
-                    retries -= 1
-                    log(f"trainer was SIGKILLed; restarting from {run}/ckpt/last.pt ({retries} retries left)")
+                    if planned:
+                        log("planned trainer restart (releases host memory)")
+                    else:
+                        retries -= 1
+                        log(f"trainer was SIGKILLed; restarting from {run}/ckpt/last.pt ({retries} retries left)")
                     # state is now in the run dir; --max-hours counts from the
                     # restart, so shrink it by the time already used
                     used = (time.time() - T0) / 3600

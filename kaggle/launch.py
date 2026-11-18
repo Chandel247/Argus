@@ -40,7 +40,8 @@ JOBS = {
     # 6 h sessions: fresh checkpoints for the demo more often, and a lost
     # session costs less quota
     "semi-uir-uieb": {"title": "argus semi-uir uieb", "steps": ["train", "test"],
-                      "epochs": 200, "max_hours": 6, "kill_retries": 2, "result_name": "semi_uir"},
+                      "epochs": 200, "max_hours": 6, "kill_retries": 2, "restart_every": 25,
+                      "result_name": "semi_uir"},
     # YOLO on RUOD: one full epoch + a benchmark eval, to time data prep and an epoch
     "yolo-ruod-check": {"title": "argus yolo ruod check", "datasets": ["ruod"],
                         "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",

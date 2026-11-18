@@ -42,6 +42,7 @@ from uie import runstate  # noqa: E402
 from uie.baselines import semi_uir  # noqa: E402
 
 SPLITS = ROOT / "splits"
+RESTART_CODE = 3  # "resume me in a fresh process" (see --restart-every)
 
 
 def read_split(name):
@@ -168,6 +169,9 @@ def main(argv=None):
     ap.add_argument("--max-hours", type=float, default=11.0, help="stop cleanly before this wall time")
     ap.add_argument("--workers", type=int, default=2, help="DataLoader workers per loader")
     ap.add_argument("--mem-interval", type=float, default=60, help="seconds between memory log lines")
+    ap.add_argument("--restart-every", type=int, default=0,
+                    help="exit with code 3 after this many epochs so the caller restarts the process "
+                         "(bounds host RAM: the process grows ~0.6 GB per epoch); 0 = never")
     ap.add_argument("--smoke", action="store_true", help="tiny subsets for a pipeline check")
     args = ap.parse_args(argv)
     t_start = time.time()
@@ -321,8 +325,11 @@ def main(argv=None):
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        m = memlog.log(event="epoch_end")
+        # live tensors tell a reference leak (count grows) from allocator growth (it does not)
+        n_tensors = sum(1 for o in gc.get_objects() if isinstance(o, torch.Tensor))
+        m = memlog.log(event="epoch_end", n_tensors=n_tensors)
         rec.update({k: m.get(k) for k in ("rss_main", "rss_children", "cg_current", "cg_peak", "host_avail")})
+        rec["n_tensors"] = n_tensors
         with open(run / "metrics.jsonl", "a") as f:
             f.write(json.dumps(rec) + "\n")
         print(f"[epoch {epoch}] val PSNR {val_psnr:.3f} (best {best:.3f}) {dt:.0f}s", flush=True)
@@ -332,6 +339,10 @@ def main(argv=None):
             print(f"time budget reached after epoch {epoch} ({elapsed:.2f}h); resume in a new session")
             memlog.log(event="budget_stop")
             return
+        if args.restart_every and epoch < args.epochs and len(epoch_times) >= args.restart_every:
+            print(f"restarting the process after {len(epoch_times)} epochs to release host memory", flush=True)
+            memlog.log(event="restart")
+            sys.exit(RESTART_CODE)
 
     memlog.log(event="done")
     (run / "DONE").touch()
