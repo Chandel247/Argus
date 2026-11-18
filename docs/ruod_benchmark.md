@@ -74,3 +74,41 @@ every method.
 
 The detector weights (`best.pt`) come from the `yolo-ruod` Kaggle job; ask for
 the current file or fetch it with `python kaggle/launch.py fetch yolo-ruod`.
+
+## Reference detector (raw images)
+
+YOLO11s (COCO-pretrained), fine-tuned 100 epochs on `ruod_train_fit.txt`
+at 640 px, batch 32, 2×T4 (2.3 h). `best.pt` is the epoch with the best
+fitness on `ruod_val.txt` (epoch 79: val mAP50 0.874, mAP50-95 0.649);
+SHA-256 starts `a82f4674a95f30f0`. Scores on the **original** images, i.e. the
+"raw" row every enhancement method is compared against:
+
+| Set | Images | mAP50 | mAP50-95 | Precision | Recall |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| bench400 | 400 | 0.884 | 0.654 | 0.887 | 0.824 |
+| test (full) | 4,200 | 0.864 | 0.636 | 0.869 | 0.802 |
+| blur | 100 | 0.848 | 0.638 | 0.837 | 0.766 |
+| color | 100 | 0.833 | 0.626 | 0.902 | 0.787 |
+| light | 100 | 0.718 | 0.529 | 0.707 | 0.742 |
+
+Per-class AP50 / AP50-95:
+
+| Class | bench400 | test | blur | color | light |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| holothurian | 0.813 / 0.505 | 0.823 / 0.518 | 0.883 / 0.510 | 0.821 / 0.651 | 0.247 / 0.173 |
+| echinus | 0.899 / 0.550 | 0.908 / 0.540 | 0.944 / 0.556 | 0.923 / 0.616 | 0.884 / 0.487 |
+| scallop | 0.801 / 0.513 | 0.829 / 0.530 | 0.782 / 0.519 | 0.586 / 0.344 | 0.567 / 0.224 |
+| starfish | 0.895 / 0.547 | 0.902 / 0.572 | 0.894 / 0.578 | 0.922 / 0.667 | 0.947 / 0.630 |
+| fish | 0.770 / 0.526 | 0.773 / 0.549 | 0.848 / 0.630 | 0.520 / 0.341 | 0.420 / 0.259 |
+| corals | 0.822 / 0.628 | 0.733 / 0.556 | 0.274 / 0.228 | 0.751 / 0.498 | 0.373 / 0.267 |
+| diver | 0.955 / 0.767 | 0.942 / 0.753 | 0.944 / 0.690 | 0.954 / 0.751 | 0.922 / 0.696 |
+| cuttlefish | 0.987 / 0.891 | 0.975 / 0.856 | 0.995 / 0.967 | 0.973 / 0.876 | 0.905 / 0.876 |
+| turtle | 0.956 / 0.817 | 0.972 / 0.858 | 0.919 / 0.812 | 0.995 / 0.874 | 0.994 / 0.934 |
+| jellyfish | 0.941 / 0.793 | 0.787 / 0.625 | 0.995 / 0.895 | 0.887 / 0.637 | 0.919 / 0.739 |
+
+bench400 tracks the full test set closely (mAP50 +0.020, mAP50-95 +0.018),
+so it is a fair stand-in. The blur/color/light subsets have only 100 images
+each, so a class with a handful of boxes there swings a lot; compare their
+overall mAP, not single classes. Poor lighting is where the detector
+struggles most (mAP50 0.718), which is where enhancement has the most room to
+help.
