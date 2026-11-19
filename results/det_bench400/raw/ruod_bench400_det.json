@@ -1,0 +1,56 @@
+{
+  "method": "raw",
+  "dataset": "ruod_bench400",
+  "weights": "/kaggle/input/datasets/naomirory2/argus-yolo11s-ruod/yolo11s_ruod_best.pt",
+  "images_dir": "/kaggle/input/datasets/naomirory2/ruod-final/RUOD_pic/test",
+  "map50": 0.8839,
+  "map50_95": 0.6539,
+  "precision": 0.8873,
+  "recall": 0.824,
+  "per_class": {
+    "holothurian": {
+      "ap50": 0.8127,
+      "ap50_95": 0.5049
+    },
+    "echinus": {
+      "ap50": 0.8993,
+      "ap50_95": 0.5498
+    },
+    "scallop": {
+      "ap50": 0.8011,
+      "ap50_95": 0.513
+    },
+    "starfish": {
+      "ap50": 0.8946,
+      "ap50_95": 0.5475
+    },
+    "fish": {
+      "ap50": 0.7698,
+      "ap50_95": 0.5264
+    },
+    "corals": {
+      "ap50": 0.8216,
+      "ap50_95": 0.6283
+    },
+    "diver": {
+      "ap50": 0.9554,
+      "ap50_95": 0.767
+    },
+    "cuttlefish": {
+      "ap50": 0.9869,
+      "ap50_95": 0.8912
+    },
+    "turtle": {
+      "ap50": 0.9559,
+      "ap50_95": 0.8171
+    },
+    "jellyfish": {
+      "ap50": 0.9413,
+      "ap50_95": 0.7934
+    }
+  },
+  "images": 400,
+  "resized": 0,
+  "imgsz": 640,
+  "sec": 26.0
+}

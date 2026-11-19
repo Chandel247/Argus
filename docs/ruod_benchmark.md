@@ -115,3 +115,28 @@ each, so a class with a handful of boxes there swings a lot; compare their
 overall mAP, not single classes. Poor lighting is where the detector
 struggles most (mAP50 0.718), which is where enhancement has the most room to
 help.
+
+## Raw vs enhanced (bench400)
+
+Same detector weights (`yolo11s_ruod_best.pt`), same settings (640 px,
+batch 16), same 400 images; enhanced copies are Raghav's GAN and L1-only
+enhancers (trained on UIEB, run at full resolution, notebook
+`raghavb441/argus-eval`). Kaggle job `det-bench400-enhanced`; JSONs in
+`results/det_bench400/`.
+
+| Input | mAP50 | mAP50-95 | Precision | Recall |
+| --- | ---: | ---: | ---: | ---: |
+| Raw | 0.884 | 0.654 | 0.887 | 0.824 |
+| GAN-enhanced | 0.766 | 0.551 | 0.880 | 0.682 |
+| L1-enhanced | 0.775 | 0.559 | 0.849 | 0.706 |
+
+AP50 per class (raw / GAN / L1): holothurian 0.813 / 0.596 / 0.607,
+echinus 0.899 / 0.715 / 0.736, scallop 0.801 / 0.323 / 0.375,
+starfish 0.895 / 0.672 / 0.705, fish 0.770 / 0.745 / 0.750,
+corals 0.822 / 0.784 / 0.782, diver 0.955 / 0.947 / 0.943,
+cuttlefish 0.987 / 0.987 / 0.975, turtle 0.956 / 0.968 / 0.968,
+jellyfish 0.941 / 0.923 / 0.910.
+
+The detector was trained on raw RUOD, so enhanced images are a shift in
+input distribution for it; the drop comes mostly from recall on small
+seabed classes (scallop, holothurian, echinus, starfish).
