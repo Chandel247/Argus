@@ -29,6 +29,7 @@ DATASETS = {
     "uieb": "naomirory2/uieb-final",
     "lsui": "noureldin199/lsui-large-scale-underwater-image-dataset",
     "ruod": "naomirory2/ruod-final",
+    "yolo_weights": "naomirory2/argus-yolo11s-ruod",
 }
 
 JOBS = {
@@ -54,6 +55,12 @@ JOBS = {
                         "epochs": 1, "max_hours": 1.5, "eval_sets": ["bench400"], "eval_only_when_done": False,
                         "prepare_sets": ["train", "val", "bench400"], "result_name": "yolo11s_ruod_check",
                         "timeout": 7200, "state_marker": "yolo/weights/last.pt"},
+    # the fine-tuned detector on enhanced copies of bench400 vs the raw images;
+    # folders come from other notebooks' outputs (kernel_sources)
+    "det-bench400-enhanced": {"title": "argus det bench400 enhanced", "datasets": ["ruod", "yolo_weights"],
+                              "kernel_sources": ["raghavb441/argus-eval"], "steps": ["det_folders"],
+                              "det_folders": {"raw": None, "gan": "ruod_bench400_gan", "l1": "ruod_bench400_l1"},
+                              "timeout": 3600},
     "yolo-ruod": {"title": "argus yolo ruod", "datasets": ["ruod"],
                   "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",
                   "epochs": 100, "max_hours": 10.5, "result_name": "yolo11s_ruod",
@@ -162,7 +169,7 @@ def kernel_slug(job):
 
 def cmd_push(a):
     job = JOBS[a.job]
-    cfg = {k: v for k, v in job.items() if k not in ("title", "timeout", "datasets", "state_marker")}
+    cfg = {k: v for k, v in job.items() if k not in ("title", "timeout", "datasets", "state_marker", "kernel_sources")}
     cfg["code_commit"] = head_commit()
     wait_code_version(cfg["code_commit"])
     sources = [f"{username()}/argus-code", *(DATASETS[d] for d in job.get("datasets", ["uieb", "lsui"]))]
@@ -176,7 +183,7 @@ def cmd_push(a):
     code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
     meta = {"id": kernel_slug(a.job), "title": job["title"], "code_file": "main.py", "language": "python",
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
-            "machine_shape": ACCELERATOR, "dataset_sources": sources, "kernel_sources": [],
+            "machine_shape": ACCELERATOR, "dataset_sources": sources, "kernel_sources": job.get("kernel_sources", []),
             "competition_sources": [], "model_sources": []}
     with tempfile.TemporaryDirectory() as d:
         (Path(d) / "main.py").write_text(code)

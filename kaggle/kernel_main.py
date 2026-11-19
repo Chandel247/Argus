@@ -10,6 +10,7 @@ it does not depend on Kaggle's mount naming), then runs CONFIG["steps"]:
   ruod_prepare    RUOD -> YOLO dataset in /tmp/ruod_yolo (scripts/prepare_ruod_yolo.py)
   yolo_train      fine-tune YOLO on RUOD (scripts/train_yolo.py), resumable
   yolo_eval       best.pt on the RUOD evaluation sets (scripts/eval_detection.py)
+  det_folders     the shared detector on bench400 image folders (raw + enhanced)
 Everything worth keeping is written to /kaggle/working (the kernel output).
 """
 CONFIG = {}  # replaced by launch.py
@@ -133,6 +134,22 @@ def run_detection(py):
                     "--ann", ruod / "RUOD_ANN/instances_test.json", "--split", f"splits/{EVAL_SPLITS[s]}",
                     "--name", CONFIG.get("result_name", "yolo_ruod"), "--dataset", f"ruod_{s}",
                     "--out", OUT / "results"])
+        elif step == "det_folders":
+            # one detector, one setting, several image folders of bench400
+            best = find_dir("yolo11s_ruod_best.pt")
+            assert best, "detector weights dataset not attached"
+            for name, folder in CONFIG["det_folders"].items():
+                if folder is None:
+                    images = ruod / "RUOD_pic/test"
+                else:
+                    parent = find_dir(folder)
+                    assert parent, f"{folder} not attached"
+                    images = parent / folder
+                n = sum(1 for _ in images.iterdir())
+                log(f"{name}: {images} ({n} files)")
+                sh([py, "scripts/eval_detection.py", "--weights", best / "yolo11s_ruod_best.pt", "--images", images,
+                    "--ann", ruod / "RUOD_ANN/instances_test.json", "--split", "splits/ruod_bench400.txt",
+                    "--name", name, "--dataset", "ruod_bench400", "--out", OUT / "results"])
         else:
             raise SystemExit(f"unknown step {step}")
 
@@ -159,7 +176,7 @@ def main():
     sh(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv"])
 
     run = OUT / "run"
-    if any(st in CONFIG["steps"] for st in ("ruod_prepare", "yolo_train", "yolo_eval")):
+    if any(st in CONFIG["steps"] for st in ("ruod_prepare", "yolo_train", "yolo_eval", "det_folders")):
         run_detection(py)
         log("all steps done")
         return
