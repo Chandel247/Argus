@@ -1,0 +1,76 @@
+{
+ "gpu": "Tesla T4",
+ "torch": "2.11.0+cu130",
+ "cuda": "13.0",
+ "batch": 1,
+ "warmup": 10,
+ "timed_images": 100,
+ "precision": "fp32",
+ "enh_images": "uieb_train_fit.txt (first 100)",
+ "det_images": "ruod_bench400.txt (first 100)",
+ "gan_generator": {
+  "params": 7021699,
+  "checkpoint_file_mb": 26.82,
+  "weights_mb": 26.82,
+  "input": "256x256",
+  "model": {
+   "images": 100,
+   "img_per_s": 250.1,
+   "ms_mean": 4.0,
+   "ms_median": 3.99
+  },
+  "pipeline": {
+   "images": 100,
+   "img_per_s": 94.3,
+   "ms_mean": 10.6,
+   "ms_median": 8.32
+  },
+  "checkpoint_keys": [
+   "G",
+   "epoch",
+   "mode",
+   "val_psnr"
+  ]
+ },
+ "semi_uir": {
+  "params": 1675299,
+  "checkpoint_file_mb": 6.46,
+  "weights_mb": 6.46,
+  "input": "256x256",
+  "model": {
+   "images": 100,
+   "img_per_s": 14.2,
+   "ms_mean": 70.47,
+   "ms_median": 70.23
+  },
+  "pipeline": {
+   "images": 100,
+   "img_per_s": 0.4,
+   "ms_mean": 2491.64,
+   "ms_median": 2219.37
+  }
+ },
+ "yolo11s": {
+  "params": 9431662,
+  "checkpoint_file_mb": 18.28,
+  "weights_mb": 36.24,
+  "input": "640 (letterboxed, long side)",
+  "model": {
+   "images": 100,
+   "img_per_s": 123.0,
+   "ms_mean": 8.13,
+   "ms_median": 8.12
+  },
+  "pipeline": {
+   "images": 100,
+   "img_per_s": 89.5,
+   "ms_mean": 11.17,
+   "ms_median": 10.52
+  },
+  "ultralytics_speed_ms": {
+   "preprocess": 2.08,
+   "inference": 10.38,
+   "postprocess": 1.28
+  }
+ }
+}
