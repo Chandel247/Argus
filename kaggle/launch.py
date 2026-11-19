@@ -42,6 +42,12 @@ JOBS = {
     "semi-uir-uieb": {"title": "argus semi-uir uieb", "steps": ["train", "test"],
                       "epochs": 200, "max_hours": 6, "kill_retries": 2, "restart_every": 25,
                       "result_name": "semi_uir"},
+    # final test of a chosen Semi-UIR checkpoint (training stopped at a plateau):
+    # put it at runs/semi-uir-uieb-test/<tag>/run/ckpt/best.pt, then
+    # save-state + push --resume
+    "semi-uir-uieb-test": {"title": "argus semi-uir uieb test", "steps": ["test"],
+                           "test_only_when_done": False, "result_name": "semi_uir",
+                           "timeout": 10800, "state_marker": "ckpt/best.pt"},
     # YOLO on RUOD: one full epoch + a benchmark eval, to time data prep and an epoch
     "yolo-ruod-check": {"title": "argus yolo ruod check", "datasets": ["ruod"],
                         "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",

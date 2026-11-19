@@ -229,6 +229,12 @@ def main():
 
         elif step == "test":
             best = run / "ckpt/best.pt"
+            if not best.exists() and "train" not in CONFIG["steps"]:
+                state = find_dir("ckpt/best.pt")  # test-only job: checkpoint comes as attached state
+                check_state(state)
+                if state:
+                    best = state / "ckpt/best.pt"
+                    log(f"testing {best}")
             if not best.exists() or (CONFIG.get("test_only_when_done", True) and not (run / "DONE").exists()):
                 log("skipping test: training not finished")
                 continue
