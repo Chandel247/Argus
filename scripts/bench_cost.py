@@ -11,7 +11,7 @@ Enhancers run at the benchmark protocol size (256x256), YOLO at 640 (its
 training/evaluation size). FP32 everywhere, one GPU.
 
 python scripts/bench_cost.py --gan <argus-gan>/runs/gan/best.pt --semi <ckpt>/best.pt \
-    --yolo yolo11s_ruod_best.pt --enh-images <UIEB>/raw-890 --enh-split splits/uieb_test.txt \
+    --yolo yolo11s_ruod_best.pt --enh-images <UIEB>/raw-890 --enh-split splits/uieb_train_fit.txt \
     --det-images <RUOD>/RUOD_pic/test --det-split splits/ruod_bench400.txt --out results/cost.json
 """
 from __future__ import annotations
@@ -94,6 +94,7 @@ def timed(fn, inputs, warmup: int) -> dict:
 
 def read_images(folder: Path, split: Path, n: int) -> list[np.ndarray]:
     names = [l.strip() for l in split.read_text().splitlines() if l.strip()][:n]
+    assert len(names) == n, f"{split} has only {len(names)} images, need {n}"
     return [np.asarray(Image.open(folder / name).convert("RGB")) for name in names]
 
 

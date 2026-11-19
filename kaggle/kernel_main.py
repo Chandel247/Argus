@@ -141,7 +141,7 @@ def run_detection(py):
             assert gan and semi and yolo and uieb, f"inputs missing: gan={gan} semi={semi} yolo={yolo} uieb={uieb}"
             sh([py, "scripts/bench_cost.py", "--gan", gan / "runs/gan/best.pt", "--semi", semi / "ckpt/best.pt",
                 "--yolo", yolo / "yolo11s_ruod_best.pt", "--enh-images", uieb / "raw-890",
-                "--enh-split", "splits/uieb_test.txt", "--det-images", ruod / "RUOD_pic/test",
+                "--enh-split", "splits/uieb_train_fit.txt", "--det-images", ruod / "RUOD_pic/test",
                 "--det-split", "splits/ruod_bench400.txt", "--out", OUT / "results/cost.json"])
         elif step == "det_folders":
             # one detector, one setting, several image folders of bench400
