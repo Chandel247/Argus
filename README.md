@@ -129,6 +129,21 @@ python scripts/eval_detection.py --weights best.pt --images <enhanced bench400> 
     --ann <RUOD>/RUOD_ANN/instances_test.json --name <method>
 ```
 
+## Results
+
+Semi-UIR, protocol A (train UIEB-800), checkpoint epoch 41 (best UIEB-val
+PSNR 24.31 dB; training stopped at epoch 136 after 95 epochs without
+improvement). All images scored at 256×256. Per-image scores: `results/semi_uir/`.
+
+| Test set | PSNR ↑ | SSIM ↑ | LPIPS ↓ | UIQM ↑ | UCIQE ↑ |
+|---|---:|---:|---:|---:|---:|
+| UIEB T90 | 23.52 | 0.910 | 0.109 | 2.911 | 0.323 |
+| LSUI L400 (cross-dataset) | 20.85 | 0.827 | 0.229 | 2.758 | 0.332 |
+
+| No-reference set | UIQM ↑ | UCIQE ↑ | MUSIQ ↑ | NIQE ↓ | URanker ↑ |
+|---|---:|---:|---:|---:|---:|
+| UIEB C60 | 2.593 | 0.305 | 47.64 | 5.512 | 1.584 |
+
 ## Export and demo
 
 ```bash
