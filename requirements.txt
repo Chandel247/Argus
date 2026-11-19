@@ -12,3 +12,5 @@ opencv-python-headless
 adamp
 # demo
 flask
+# detection (RUOD YOLO11s; uie/detect.py)
+ultralytics==8.4.180

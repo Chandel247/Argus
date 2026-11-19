@@ -144,6 +144,25 @@ improvement). All images scored at 256×256. Per-image scores: `results/semi_uir
 |---|---:|---:|---:|---:|---:|
 | UIEB C60 | 2.593 | 0.305 | 47.64 | 5.512 | 1.584 |
 
+### Detection function (for the demo)
+
+`uie/detect.py`: image in, boxed image + detections out. Weights:
+`yolo11s_ruod_best.pt` from the private Kaggle dataset
+`naomirory2/argus-yolo11s-ruod` (locally: `exports/yolo11s_ruod/best.pt`).
+
+```python
+from uie.detect import Detector
+det = Detector("exports/yolo11s_ruod/best.pt")   # load once at startup
+boxed, detections = det.detect(image)            # path, PIL image or RGB uint8 array
+# boxed: RGB uint8 array, same size as the input
+# detections: [{"box": [x1, y1, x2, y2], "class": "holothurian", "class_id": 0, "confidence": 0.76}, ...]
+#             pixel coordinates of the input image, highest confidence first
+```
+
+CLI: `python -m uie.detect --weights best.pt --image photo.jpg --out boxed.jpg`.
+`conf` defaults to 0.25 (`det.detect(image, conf=0.4)` to show fewer boxes);
+about 2 s per 1080p image on a laptop CPU including model load.
+
 ## Export and demo
 
 ```bash
