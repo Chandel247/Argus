@@ -223,6 +223,8 @@ def main():
                     cmd[i + 1] = round(CONFIG.get("max_hours", 11) - used, 2)
                     if cmd[i + 1] < 0.5:
                         log("not enough session time left to restart")
+                        if planned:  # checkpoint is saved; end the session normally
+                            break
                         raise
 
         elif step == "test":

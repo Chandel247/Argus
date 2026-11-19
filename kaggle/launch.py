@@ -159,15 +159,15 @@ def cmd_push(a):
     cfg = {k: v for k, v in job.items() if k not in ("title", "timeout", "datasets", "state_marker")}
     cfg["code_commit"] = head_commit()
     wait_code_version(cfg["code_commit"])
-    src = (ROOT / "kaggle" / "kernel_main.py").read_text()
-    assert "CONFIG = {}" in src
-    code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
     sources = [f"{username()}/argus-code", *(DATASETS[d] for d in job.get("datasets", ["uieb", "lsui"]))]
     if a.resume:
         ref = f"{username()}/argus-state-{a.job}"
         cfg["state_id"] = latest_fetch(a.job).name
         wait_version(ref, "STATE_ID", cfg["state_id"])
         sources.append(ref)
+    src = (ROOT / "kaggle" / "kernel_main.py").read_text()
+    assert "CONFIG = {}" in src
+    code = src.replace("CONFIG = {}", "CONFIG = " + repr(cfg), 1)  # Python literal, not JSON
     meta = {"id": kernel_slug(a.job), "title": job["title"], "code_file": "main.py", "language": "python",
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
             "machine_shape": ACCELERATOR, "dataset_sources": sources, "kernel_sources": [],
