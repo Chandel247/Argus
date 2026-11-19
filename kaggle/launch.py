@@ -30,6 +30,7 @@ DATASETS = {
     "lsui": "noureldin199/lsui-large-scale-underwater-image-dataset",
     "ruod": "naomirory2/ruod-final",
     "yolo_weights": "naomirory2/argus-yolo11s-ruod",
+    "semi_best": "naomirory2/argus-state-semi-uir-uieb-test",  # epoch-41 ckpt/best.pt
 }
 
 JOBS = {
@@ -61,6 +62,9 @@ JOBS = {
                               "kernel_sources": ["raghavb441/argus-eval"], "steps": ["det_folders"],
                               "det_folders": {"raw": None, "gan": "ruod_bench400_gan", "l1": "ruod_bench400_l1"},
                               "timeout": 3600},
+    # parameters, weight size and img/s of the GAN generator, Semi-UIR and YOLO11s on one T4
+    "cost": {"title": "argus cost", "datasets": ["uieb", "ruod", "yolo_weights", "semi_best"],
+             "kernel_sources": ["raghavb441/argus-gan"], "steps": ["cost"], "timeout": 3600},
     "yolo-ruod": {"title": "argus yolo ruod", "datasets": ["ruod"],
                   "steps": ["ruod_prepare", "yolo_train", "yolo_eval"], "model": "yolo11s.pt",
                   "epochs": 100, "max_hours": 10.5, "result_name": "yolo11s_ruod",
