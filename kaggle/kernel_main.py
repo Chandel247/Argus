@@ -157,7 +157,9 @@ def run_detection(py):
 def main():
     log(f"config: {json.dumps(CONFIG)}")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-    code_src = find_dir("uie/metrics.py")
+    # GIT_COMMIT marks our argus-code dataset; attached notebook outputs can
+    # hold other clones of the repo (seen with a teammate's notebook)
+    code_src = find_dir("GIT_COMMIT") or find_dir("uie/metrics.py")
     assert code_src, "argus code dataset not attached"
     if TMP.exists():
         shutil.rmtree(TMP)
