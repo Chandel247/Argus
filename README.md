@@ -85,6 +85,10 @@ vendored) and wrapped by an adapter in `uie/baselines/`.
 |---|---|---|
 | Semi-UIR (CVPR'23) | `uie/baselines/semi_uir.py` | mmcv DCN → torchvision shim; unlabeled set = 800 LSUI-train inputs; checkpoint selection on `splits/uieb_val.txt` (50 held out of UIEB train), T90 never used for selection |
 
+Our own enhancers use the same interface: `uie/baselines/funie_gan.py`, registry
+names `gan` and `l1` (one generator, two training runs). Model, training and
+results: [`enhance/README.md`](enhance/README.md).
+
 ## Training on Kaggle
 
 Training runs as private Kaggle script kernels (2×T4), driven locally:
@@ -182,11 +186,20 @@ better one, switching `exports/<model>/current.json` atomically; the demo
 watches that file and hot-reloads the new weights. `--watch 600` repeats the
 export periodically.
 
+## Team
+
+| Member | Part |
+|---|---|
+| Raghav (23CSU255) | GAN and L1-only enhancers: model, training, evaluation, enhanced RUOD images (`enhance/`, `uie/baselines/funie_gan.py`) |
+| Shiv Pratap Singh Chandel (23CSU289) | Splits and evaluation harness, Semi-UIR baseline, YOLO11s detector and bench400, cost benchmark, demo backend |
+| Shobhit Niraj Anadkat (23CSU290) | Dataset acquisition and audit, literature and feasibility, demo frontend, report and presentation |
+
 ## Layout
 
 ```
 configs/    dataset paths and sources
 splits/     train/test filename lists
+enhance/    our GAN / L1-only training script and notes
 uie/        shared metrics, baseline adapters, compatibility shims
 scripts/    data, splits, training, inference, evaluation, export
 kaggle/     Kaggle kernel entry point and launcher
